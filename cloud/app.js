@@ -1,7 +1,6 @@
 // 在Cloud code里初始化express框架
 var express = require('express');
-
-
+var http = require('http');
 var app = express();
 
 // App全局配置
