@@ -1,6 +1,5 @@
 // 在Cloud code里初始化express框架
 var express = require('express');
-var http = require('http');
 var app = express();
 
 // App全局配置
@@ -12,6 +11,18 @@ app.use(express.bodyParser());    // 读取请求body的中间件
 app.get('/hello', function(req, res) {
   res.render('hello', { message: 'Congrats, you just set up your app!' });
 });
+
+
+AV.Cloud.httpRequest({
+  url: 'http://www.google.com/',
+  success: function(httpResponse) {
+    console.log(httpResponse.text);
+  },
+  error: function(httpResponse) {
+    console.error('Request failed with response code ' + httpResponse.status);
+  }
+});
+
 
 //最后，必须有这行代码来使express响应http请求
 app.listen();
