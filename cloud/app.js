@@ -14,7 +14,7 @@ app.get('/hello', function(req, res) {
 
 
 AV.Cloud.httpRequest({
-  url: 'http://www.google.com/',
+  url: 'http://video.sina.com.cn/z/sports/nba/officialbest';
   success: function(httpResponse) {
     console.log("::"+httpResponse.text);
   },
