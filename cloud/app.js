@@ -16,7 +16,7 @@ app.get('/hello', function(req, res) {
 AV.Cloud.httpRequest({
   url: 'http://www.google.com/',
   success: function(httpResponse) {
-    console.log(httpResponse.text);
+    console.log("::"+httpResponse.text);
   },
   error: function(httpResponse) {
     console.error('Request failed with response code ' + httpResponse.status);
