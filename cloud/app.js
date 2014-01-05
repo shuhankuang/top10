@@ -1,5 +1,4 @@
 // 在Cloud code里初始化express框架
-var http = require('http');
 var express = require('express');
 var avos = require('avoscloud-code');
 
