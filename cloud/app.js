@@ -111,14 +111,16 @@ function createTodayVideo(type){
 
   var Today = AV.Object.extend("Today");
   var today = new Today();
+  var day = new Date();
+  var dayStr = moment(day).format('YYYY-MM-DD');
 
-  var day = moment(new Date().toString()).format('YYYY-MM-DD');
   today.set('day', day);
+  today.set('dayStr', dayStr);
   today.set('type',type);
   today.set('total', 0);
 
   var query =  new AV.Query(Today);
-  query.equalTo("day", day);
+  query.equalTo("dayStr", dayStr);
   query.find({
     success: function(results) {
       var t = results.length;
