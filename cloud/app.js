@@ -48,6 +48,54 @@ app.get('/c', function(req, res) {
 var keyWords = []; //['日官方最佳', '视频', '录播', '集锦', '10佳球', '5佳球', '统计', '实录', '图文', '最佳', '官方', '趣谈', '数据', '精彩', '扣篮','助攻', '盖帽', '过人'];
 var latest;
 updateSinaRollNewsToAvos();
+//updateURLForPad();
+function updateURLForPad() {
+
+    var textURL = 'http://sports.sina.com.cn';
+    var iosSlide = 'http://dp.sina.cn/dpool/hdpic/view.php?';
+    var iosNews = 'http://dp.sina.cn/dpool/cms/jump.php?url=';
+    var slideURL = 'http://slide.sports.sina.com.cn';
+    var query = new AV.Query('News');
+    query.limit(300);
+    query.find({
+        success: function(results) {
+            var t = results.length;
+            for (var i = 0; i < t; i++) {
+                var news = results[i];
+                var url = news.get('url');
+                var _text = url.indexOf(iosNews);
+                var _slide = url.indexOf(iosSlide);
+                if (_text > -1) {
+                    //url = iosNews+url;
+                    //_log(url);
+                    var sl = iosNews.length;
+                    url = url.substr(sl, url.length);
+                    _log("news: " + url);
+                    //news.set('url', url);
+                    //news.save();
+                };
+                if (_slide > -1) {
+                    /*
+                    _log(_slide + ":" + url);
+                    var arr = url.split('/');
+                    arr = arr[arr.length-1].split('.')[0].split('_');
+                    var obj = {ch:arr[1],sid:arr[2],aid:arr[3]}
+                    var params = qs.stringify(obj);
+                    url = iosSlide+params;
+                    */
+                    var sl = iosSlide.length;
+                    url = url.substr(sl, url.length);
+                    _log("slide: " + url);
+                    //news.set('url', url);
+                    //news.save();
+                };
+            };
+        },
+        error: function() {
+            _log('updateURLForPad error: ' + error.message);
+        }
+    })
+}
 /*
 //只用于人手更新
 var skip = 0;
@@ -86,6 +134,7 @@ function updateIntro() {
     })
 }
 */
+
 
 function updateSinaRollNewsToAvos() {
     //每隔5分钟就尝试更新一次。
@@ -128,6 +177,61 @@ function getNewsKeyWords(title) {
     return _keyWords;
 }
 
+//根据新闻的路径判断该新闻的类型
+function getNewsTypeAndFormatURL(url) {
+    //只是文字新闻
+    var textURL = 'http://sports.sina.com.cn';
+    //幻灯片（图文）
+    var slideURL = 'http://slide.sports.sina.com.cn';
+    //视频
+    var videoURL = 'http://video.sina.com.cn/';
+    //博文
+    var blogURL = 'http://blog.sina.com.cn/'
+
+    //用于转换地址的，方便在移动设备上查看.
+    var mobileSlide = 'http://dp.sina.cn/dpool/hdpic/view.php?';
+    var mobileNews = 'http://dp.sina.cn/dpool/cms/jump.php?url=';
+    var mobileVideo = 'http://dp.sina.cn/dpool/video/pad/play.php?url='
+
+    var _type = '';
+    var _url = '';
+
+    if (url.indexOf(textURL) > -1) {
+        //直播的页面是没有
+        if (url.score('live') > 0) {
+            _type = 'live-text';
+        } else {
+            _type = 'text';
+            _url = mobileNews + url;
+        }
+    };
+    if (url.indexOf(slideURL) > -1) {
+        _type = 'slide';
+        var arr = url.split('/');
+        arr = arr[arr.length - 1].split('.')[0].split('_');
+        var obj = {
+            ch: arr[1],
+            sid: arr[2],
+            aid: arr[3]
+        }
+        var params = qs.stringify(obj);
+        _url = mobileSlide + params;
+    };
+    if (url.indexOf(videoURL) > -1) {
+        _type = 'video';
+        _url = mobileVideo + url;
+    };
+    if (url.indexOf(blogURL) > -1) {
+        _type = 'blog';
+        _url = url;
+    };
+
+    return {
+        type: _type,
+        url: _url
+    };
+}
+
 function getTheLatestNewsInAvos(nextFunc) {
     var News = AV.Object.extend('News');
     var query = new AV.Query('News');
@@ -160,11 +264,9 @@ function getNewsFromSinaNewsRoll() {
         $('li span a').each(function(i, elem) {
             var obj = {};
             var title = $(this).text();
-            var mediaType = $(this).hasClass('videoNewsLeft') ? "video" : "text";
             var time = $(this).parent().next().text();
             var url = $(this).attr('href');
             obj['title'] = title;
-            obj['mediaType'] = mediaType;
             obj['time'] = time;
             obj['url'] = url;
             items.push(obj);
@@ -201,25 +303,39 @@ function parseAndSaveNews(newsArr) {
     };
     var news = newsArr[0];
     var url = news['url'];
+    var obj = getNewsTypeAndFormatURL(url);
+
     fetchUrl(url, function(error, meta, body) {
         $ = cheerio.load(body.toString());
+
         var _news = $('dl dt a').first();
         var title = _news.attr('title');
         var image = _news.children('img').attr('_src');
-        var href = _news.attr('href')
-        var mediaType = news.mediaType;
         var publish = news.time;
         var url = news.url;
-        //
+
+        var mobileURL = obj['url'];
+        var newsType = obj['type'];
+
         var News = AV.Object.extend('News');
         var newsObj = new News();
         newsObj.set('title', news['title']);
         newsObj.set('image', image);
-        newsObj.set('mediaType', mediaType);
+        newsObj.set('newsType', newsType);
         newsObj.set('publish', publish);
         newsObj.set('url', url);
+        newsObj.set('mobileUrl', mobileURL);
         newsObj.set('offical', 'NBA');
         newsObj.set('type', "basketball");
+
+        if(newsType == 'video'){
+            var intro = $('.intro').next().html();
+            _log(intro);
+            newsObj.set('intro',intro);
+        }else{
+            newsObj.set('intro','');
+        }
+
         var kw = getNewsKeyWords(news['title']);
         var isNBAOffical = false;
         var _t = kw.length;
@@ -234,9 +350,6 @@ function parseAndSaveNews(newsArr) {
         newsObj.set('keyWords', kw);
         newsObj.set('isOffical', isNBAOffical);
 
-        if (mediaType == 'video') {
-            newsObj.set('href', news['url']);
-        };
         newsObj.save(null, {
             success: function(result) {
                 _log("保存 #" + result.get('title') + " #成功!");
@@ -247,7 +360,7 @@ function parseAndSaveNews(newsArr) {
                 parseAndSaveNews(newsArr);
             },
             error: function(result, error) {
-                _log('error: ' + error.message);
+                _log('parseAndSaveNews error: ' + error.message);
             }
         });
     });
