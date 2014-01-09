@@ -153,6 +153,7 @@ function getTheLatestNewsInAvos(nextFunc) {
 //更新新闻
 function getNewsFromSinaNewsRoll() {
     var url = 'http://roll.sports.sina.com.cn/s_2002-2003NBA_all/index.shtml';
+    _log('读取消息来源: ' + url);
     fetchUrl(url, function(error, meta, body) {
         var items = [];
         $ = cheerio.load(body.toString());
@@ -210,7 +211,6 @@ function parseAndSaveNews(newsArr) {
         var publish = news.time;
         var url = news.url;
         //
-        return;
         var News = AV.Object.extend('News');
         var newsObj = new News();
         newsObj.set('title', news['title']);
