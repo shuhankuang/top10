@@ -89,7 +89,7 @@ function updateIntro() {
 
 function updateSinaRollNewsToAvos() {
     //每隔5分钟就尝试更新一次。
-    var num = 10;
+    var num = 5;
     var min = 60000;
     setInterval(function() {
         updateKeyWords();
