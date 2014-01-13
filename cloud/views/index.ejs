@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <title>TOP最精彩</title>
+    <meta charset=utf-8>
+    <meta name=description content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bootstrap CSS -->
+    <!-- 最新 Bootstrap 核心 CSS 文件 -->
+    <link rel="stylesheet" href="http://cdn.bootcss.com/twitter-bootstrap/3.0.3/css/bootstrap.min.css">
+
+<body>
+    <div class="container">
+        <div class="row clearfix">
+            <div class="col-md-12 column">
+                <h3>NBA最精彩后台管理</h3>
+                <ul class="nav nav-tabs nav-justified" style='margin-top:20px'>
+                    <li class="active">
+                        <a href="#">官方最佳</a>
+                    </li>
+                    <li>
+                        <a href="/all">精彩回顾</a>
+                    </li>
+                    <li class="disabled">
+                        <a href="#other">其他</a>
+                    </li>
+                </ul>
+                <div class="row clearfix" style="margin-top:20px" id='top'>
+                    <div class="col-md-12 column">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>图片</th>
+                                    <th>标题</th>
+                                    <th>发布时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if(results){ %>
+                                <% for (var i = 0; i<results.length; i++) {%>
+                                <tr>
+                                    <td><%= i %></td>
+                                    <% var news = results[i] %>
+                                    <% var html = '<p>NO PIC</p>' %>
+                                    <% if(news.get("image")){ %>
+                                    <% html = '<img src="'+results[i].get('image')+'" width="200" />' %>
+                                    <% } %> 
+                                    <td><%- html %></td>
+                                    <td><%= results[i].get('title') %></td>
+                                    <td><%= results[i].get('publish') %></td>
+                                    <td>
+                                        <div>
+                                            <button type="button" class="btn btn-link">编辑</button>
+                                            <button type="button" class="btn btn-link">删除</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <% }} %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- jQuery文件。务必在bootstrap.min.js 之前引入 -->
+    <script src="http://cdn.bootcss.com/jquery/1.10.2/jquery.min.js"></script>
+
+    <!-- 最新的 Bootstrap 核心 JavaScript 文件 -->
+    <script src="http://cdn.bootcss.com/twitter-bootstrap/3.0.3/js/bootstrap.min.js"></script>
+</body>
+</html>

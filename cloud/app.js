@@ -9,6 +9,7 @@ var fetchUrl = require("../node_modules/fetch").fetchUrl;
 var moment = require('../node_modules/moment');
 var cronJob = require('../node_modules/cron').CronJob;
 var qs = require('querystring');
+var async = require('async');
 require("../node_modules/string_score");
 
 var app = express();
@@ -17,6 +18,35 @@ var app = express();
 app.set('views', 'cloud/views'); //设置模板目录
 app.set('view engine', 'ejs'); // 设置template引擎
 app.use(express.bodyParser()); // 读取请求body的中间件
+
+//现实后台内容
+app.get('/index', function(req, res){
+    var query = new AV.Query('News');
+    query.limit(20);
+    query.descending('createdAt');
+    query.find({
+        success:function(results){
+            res.render('index', {results:results});
+        },
+        error:function(error){
+            console.log("error: "+error);
+        }
+    });
+});
+app.get('/all', function(req, res){
+    var query = new AV.Query('News');
+    query.limit(20);
+    query.descending('createdAt');
+    query.find({
+        success:function(results){
+            res.render('all', {results:results});
+        },
+        error:function(error){
+            console.log("error: "+error);
+        }
+    });
+});
+
 
 
 app.get('/c', function(req, res) {
@@ -47,7 +77,9 @@ app.get('/c', function(req, res) {
 
 var keyWords = []; //['日官方最佳', '视频', '录播', '集锦', '10佳球', '5佳球', '统计', '实录', '图文', '最佳', '官方', '趣谈', '数据', '精彩', '扣篮','助攻', '盖帽', '过人'];
 var latest;
-updateSinaRollNewsToAvos();
+
+
+//updateSinaRollNewsToAvos();
 //updateURLForPad();
 function updateURLForPad() {
 
@@ -328,12 +360,12 @@ function parseAndSaveNews(newsArr) {
         newsObj.set('offical', 'NBA');
         newsObj.set('type', "basketball");
 
-        if(newsType == 'video'){
+        if (newsType == 'video') {
             var intro = $('.intro').next().html();
             _log(intro);
-            newsObj.set('intro',intro);
-        }else{
-            newsObj.set('intro','');
+            newsObj.set('intro', intro);
+        } else {
+            newsObj.set('intro', '');
         }
 
         var kw = getNewsKeyWords(news['title']);
@@ -532,8 +564,6 @@ function _log(mes) {
     console.log(t + " : " + mes);
 }
 
-
-
 /*
 //getShortURL('http://zhenyouai.com/ssssss',_log);
 function saveWeddingShortURL(code, wedding){
@@ -553,4 +583,166 @@ saveWeddingShortURL('999999',null);*/
 
 
 //最后，必须有这行代码来使express响应http请求
+
+/**
+    抓取NBA赛程
+**/
+
+function getNBAScheduleFromSina(year, month, day, team, callback) {
+    var dataUrl = 'http://nba.sports.sina.com.cn/match_result.php?';
+    var _m = (month < 10) ? '0' + month : month;
+    var obj = {
+        years: year,
+        months: _m,
+        day: day,
+        teams: team
+    };
+    var params = qs.stringify(obj);
+    var url = dataUrl + params;
+    _log('url: ' + url);
+
+    //时间， 类型， 客队， 比分， 主队， 客队最高分， 主队最高分， 战报， 统计， 视频， 组图， 网络视频/电视直播
+    fetchUrl(url, function(error, meta, body) {
+        $ = cheerio.load(body.toString());
+
+        var _totalMatches = 0;
+        var _todayMatches = [];
+        var _monthMatches = [];
+        var _date = ''
+
+        $('.text tr').each(function(i, elem) {
+            var bgcolor = $(this).attr('bgcolor');
+            if (bgcolor == '#FFD200') {
+                //是日期拦
+                if (_todayMatches.length != 0) {
+                    _date = $(this).children().first().text();
+                    _monthMatches.push({
+                        date: _date,
+                        matches: _todayMatches.concat()
+                    });
+                    _todayMatches = [];
+                }
+
+            } else {
+                if (bgcolor == '#FFEFB6') {
+                    //是比赛栏
+                    var obj = {};
+                    obj['time'] = $(this).children().first().text();
+                    obj['type'] = $(this).children().first().next().text();
+                    obj['kedui'] = $(this).children().first().next().next().text();
+                    obj['bifen'] = $(this).children().first().next().next().next().text();
+                    obj['zhudui'] = $(this).children().first().next().next().next().next().text();
+                    obj['kdgaofen'] = $(this).children().first().next().next().next().next().next().text();
+                    obj['zdgaofen'] = $(this).children().first().next().next().next().next().next().next().text();
+                    obj['zhanbao'] = $(this).children().first().next().next().next().next().next().next().next().text();
+                    obj['tongji'] = $(this).children().first().next().next().next().next().next().next().next().next().text();
+                    obj['video'] = $(this).children().first().next().next().next().next().next().next().next().next().next().text();
+                    obj['pics'] = $(this).children().first().next().next().next().next().next().next().next().next().next().next().text();
+                    obj['tv'] = $(this).children().first().next().next().next().next().next().next().next().next().next().next().next().text();
+                    _todayMatches.push(obj);
+                };
+
+                _totalMatches += 1;
+            }
+        });
+        //添加最后一天
+        _monthMatches.push({
+            date: _date,
+            matches: _todayMatches.concat()
+        });
+
+        callback(null, _monthMatches);
+        /*
+        for (var i = 0; i < _monthMatches.length; i++) {
+            var _month = _monthMatches[i];
+            saveTodayMatches(_month['date'], _month['matches']);
+        };
+        */
+
+    });
+}
+
+//getNBAScheduleFromSina(2014, 1, 0, '');
+
+function saveTodayMatches(date, matches) {
+
+    var NBAMatch = AV.Object.extend('NBAMatch');
+    var NBAMatchDay = AV.Object.extend('NBAMatchDay');
+
+    var _NBAMatchDay = new NBAMatchDay();
+    _NBAMatchDay.set('date', date);
+    _NBAMatchDay.save({
+        success: function(result) {
+            var t = matches.length;
+            for (var i = 0; i < t; i++) {
+                var match = matches[i];
+
+            };
+        },
+        error: function(error) {
+            _log("saveTodayMatches error: " + error.message);
+        }
+    });
+}
+
+function saveMatch(matches, matchToday) {
+    if (matches.length == 0) {
+        return;
+    };
+
+    var query = new AV.Query('NBAMatchDay');
+    query.equalTo('date', matchToday['date']);
+    query.find({
+        success: function(results) {
+
+            var _NBAMatch = new NBAMatch();
+            match['NBAMatchDay'] = matchToday;
+            var match = matches[0];
+            _NBAMatch.save(match, {
+                success: function(res) {
+                    matches.shift();
+                    _log('保存 #' + matchToday['date'] + ":" + res['time'] + "# 成功")
+                },
+                error: function(err) {
+                    _log('_NBAMatch save error: ' + err.message);
+                }
+            })
+        },
+        error: function(error) {
+            //
+        }
+    })
+
+}
+
+var a = 1;
+
+function _run() {
+    async.waterfall([
+
+            function(callback) {
+                // do some stuff ...
+                getNBAScheduleFromSina(2014, 1, 0, '', callback);
+            },
+            function(_monthMatches, callback) {
+                // do some more stuff ...
+                _log(_monthMatches);
+                callback(null, 'done');
+            }
+        ],
+        // optional callback
+        function(err, results) {
+            // results is now equal to ['one', 'two']
+            if (!err) {
+                _log(results);
+            }
+        });
+}
+
+//_run();
+
+
+
+
+
 app.listen();
